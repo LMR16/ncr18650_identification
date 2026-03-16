@@ -1,10 +1,37 @@
-# Python-generated files
-__pycache__/
-*.py[oc]
-build/
-dist/
-wheels/
-*.egg-info
+# =========================
+# AMBIENTES VIRTUAIS
+# =========================
+.venv/
+venv/
+env/
 
-# Virtual environments
-.venv
+# =========================
+# CACHE E COMPIILADOS PYTHON
+# =========================
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+# =========================
+# ARQUIVOS DE SAÍDA / OUTPUTS
+# =========================
+# Ignora os gráficos e tabelas gerados pelo seu script
+*.png
+*.jpg
+*.pdf
+*.csv
+parametros_bateria_*.csv
+
+# =========================
+# CONFIGURAÇÕES LOCAIS / IDEs
+# =========================
+.vscode/
+.idea/
+*.swp
+
+# =========================
+# SISTEMA OPERACIONAL
+# =========================
+.DS_Store
+Thumbs.db

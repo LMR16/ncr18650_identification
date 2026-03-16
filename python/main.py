@@ -2,6 +2,7 @@ from R0_function import calc_R0
 from RC_function import calc_rc_params_nopulse
 from data import  opening_data
 from ocv_curve import ocv_curve, identificar_parametros_ocv
+from plot import plotar_R0_vs_soc
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -28,7 +29,9 @@ MPDCH = DIRETORIO_DADOS / "BID003_MPDch_24022026.txt"
 
 ## Call R0 function
 time, voltage, current = opening_data(MPDCH)    
-R0_mean, R0_values_ab, R0_values_cd = calc_R0(MPDCH)      
+R0_mean, R0_values_ab, R0_values_cd = calc_R0(MPDCH)
+plotar_R0_vs_soc(MPDCH, R0_values_ab, R0_values_cd)
+
 
 
 # ----------------------- GET PARAMS RC ---------------------------------------

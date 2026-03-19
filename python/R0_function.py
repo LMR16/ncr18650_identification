@@ -43,6 +43,7 @@ def calc_R0(path):
     ## Calculates and prints the mean of R0
     R0_values = np.concatenate((R0_valores_ab, R0_valores_cd))
     R0_mean = np.mean(R0_values)
+    R0_median = np.median(R0_values)
     
-    return R0_mean, R0_valores_ab, R0_valores_cd ## retorna os valores dos R0s já como np.arrays
+    return R0_mean, R0_median, R0_valores_ab, R0_valores_cd ## retorna os valores dos R0s já como np.arrays
 

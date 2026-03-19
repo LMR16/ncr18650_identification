@@ -32,37 +32,29 @@ def encontrar_pontos_pulso(current, threshold=0.1, amostras_e=2):
     d: imediatamente após o pulso voltar a 0
     e: uma ou duas amostras após d
     """
-    # Array booleano onde True significa que há corrente rodando (pulso)
-    is_pulse = np.abs(current) > threshold
+    ativo = np.abs(current) > threshold 
+    mudancas = np.diff(ativo.astype(int))
     
-    # np.diff encontra as transições. 
-    # 1 indica que saiu de False (0) para True (1) -> Início do pulso
-    # -1 indica que saiu de True (1) para False (0) -> Fim do pulso
-    transitions = np.diff(is_pulse.astype(int))
-
-    #np.savetxt('transitions.csv', transitions, delimiter=',')
-
-    starts = np.where(transitions == 1)[0] + 1  ## Point B
-    ends = np.where(transitions == -1)[0] + 1   ## Point D
+    inicios = np.where(mudancas == 1)[0]
+    fins = np.where(mudancas == -1)[0]
     
-    # Tratamento caso o dado comece ou termine no meio de um pulso
-    if len(ends) > 0 and len(starts) > 0:
-        if ends[0] < starts[0]:
-            ends = ends[1:]
-        if len(starts) > len(ends):
-            starts = starts[:-1]
-            
-
     pulsos = []
-    for start, end in zip(starts, ends):
-        a = start - 1
-        b = start
-        c = end - 1
-        d = end
-        e = end + amostras_e
+    
+    # Pareamento Inteligente
+    for ini in inicios:
+        # Pega a lista de todos os "fins" que são MAIORES (acontecem depois) que o "ini" atual
+        fins_validos = fins[fins > ini]
         
-        # Validação para não exceder o limite do array
-        if a >= 0 and e < len(current):
+        # Se encontrou algum final pela frente, pega o primeiro deles
+        if len(fins_validos) > 0:
+            fim = fins_validos[0]
+            
+            a = ini
+            b = ini + 1
+            c = fim 
+            d = fim + 2 
+            e = fim + 10 # Se for usar o 'e' para algo, ele fica um pouco depois do 'd'
+            
             pulsos.append({'a': a, 'b': b, 'c': c, 'd': d, 'e': e})
             
     return pulsos

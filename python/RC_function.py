@@ -1,7 +1,7 @@
 from scipy.optimize import curve_fit
 import numpy as np
 import matplotlib.pyplot as plt
-from data import func_1, encontrar_pontos_pulso, opening_data
+from data import encontrar_pontos_pulso, opening_data
 
 """
 This program will use scipy curve_fit to aproximate the values of the parâmeters x1, x2, tau1, tau2
@@ -13,6 +13,11 @@ This function will receive the MPDCH path as parameter and return a dict with al
 
 
 """
+
+# 1. GARANTIA DA FUNÇÃO: Coloque a func_1 aqui para blindar a matemática
+def func_1(t, x1, tau1, x2, tau2):
+    return x1 * np.exp(-t / tau1) + x2 * np.exp(-t / tau2)
+
 
 def get_points_ca(voltage, current):
     """
@@ -122,56 +127,50 @@ def plot_points_bc(time, voltage, current):
 
     return None
 
-def calc_rc_params_nopulse(path):
+import numpy as np
+from scipy.optimize import curve_fit
 
+def calc_rc_params_nopulse(path):
     time, voltage, current = opening_data(path)    
-    pulsos = encontrar_pontos_pulso(current) # 66 pulsos
+    pulsos = encontrar_pontos_pulso(current)
     params = {'R1': [], 'C1': [], 'R2': [], 'C2': []}
 
     for i, pls in enumerate(pulsos): 
-        # Pega o 'a', 'b' e 'c' DO PULSO ATUAL
-        a_atual, b_atual, c_atual = pls['a'], pls['b'], pls['c'] 
-    
-        # Define o fim do relaxamento usando o 'a' DO PRÓXIMO PULSO
-        if i < len(pulsos) - 1:
-            a_proximo = pulsos[i+1]['a'] 
-        else:
-            a_proximo = c_atual + 600
+        a, b, c, d = pls['a'], pls['b'], pls['c'], pls['d']
+        a_proximo = pulsos[i+1]['a'] if i < len(pulsos) - 1 else d + 600
 
-        ## fatia o tempo de relaxamento (c -> a_proximo)
-        t_fatiado = time[c_atual:a_proximo]
+        t_fatiado = np.array(time[d:a_proximo], dtype=float)
+        if len(t_fatiado) < 10: continue
+            
         t_norm = t_fatiado - t_fatiado[0]
+        v_curve = np.array(voltage[d:a_proximo], dtype=float)
+        y_alvo = v_curve[-1] - v_curve
 
-        v_curve = voltage[c_atual:a_proximo]
-        ye = v_curve[-1]
-        y_alvo = ye - v_curve
-
-        chute_inicial = [abs(y_alvo[0])*(0.5), 10.0, abs(y_alvo[0])*(0.5), 100.0]
-        limites = (0, np.inf)
+        # 2. LIMITES LIBERTADOS: Deixamos o tempo (tau) ir até aos 500/5000 segundos!
+        p0 = [abs(y_alvo[0])*0.5, 100.0, abs(y_alvo[0])*0.5, 500.0]
+        bounds = ([0.0, 1.0, 0.0, 1.0], [1.0, 500.0, 1.0, 5000.0])
 
         try:
-            popt, _ = curve_fit(func_1, t_norm, y_alvo, p0=chute_inicial, bounds=limites, maxfev=10000)
+            popt, _ = curve_fit(func_1, t_norm, y_alvo, p0=p0, bounds=bounds)
             x1, tau1, x2, tau2 = popt
             
-            # FÍSICA DO PULSO ATUAL: Usa a_atual, b_atual e c_atual
-            I_pulso = abs(current[b_atual] - current[a_atual]) 
-            tempo_pulso = time[c_atual] - time[a_atual]
+            if tau1 > tau2:
+                tau1, tau2, x1, x2 = tau2, tau1, x2, x1
+            
+            I_pulso = np.max(np.abs(current[b:c])) 
+            tempo_pulso = abs(float(time[c]) - float(time[b]))
 
-            if I_pulso > 0:
-                R1 = x1 / (I_pulso * (1 - np.exp(-tempo_pulso / tau1)))
-                R2 = x2 / (I_pulso * (1 - np.exp(-tempo_pulso / tau2)))
-            else:
-                R1, R2 = 0, 0
-
-            C1 = tau1 / R1 if R1 > 0 else 0
-            C2 = tau2 / R2 if R2 > 0 else 0
+            R1 = x1 / (I_pulso * (1 - np.exp(-tempo_pulso / tau1)))
+            R2 = x2 / (I_pulso * (1 - np.exp(-tempo_pulso / tau2)))
+            C1 = tau1 / R1
+            C2 = tau2 / R2
 
             params['R1'].append(R1)
             params['C1'].append(C1)
             params['R2'].append(R2)
             params['C2'].append(C2)
             
-        except RuntimeError as e:
-            print(f"--- ATENÇÃO: Pulso {i+1} ignorado. Motivo: {e}")
+        except Exception:
+            pass 
 
     return params

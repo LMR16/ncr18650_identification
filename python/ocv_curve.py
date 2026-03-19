@@ -72,19 +72,11 @@ def identificar_parametros_ocv(path):
         soc_linha_suave = np.linspace(0, 1, 200)
         tensao_simulada = func_ocv_exp(soc_linha_suave, k0, k1, alpha1, k2, alpha2)
         
-        plt.figure(figsize=(10, 6))
-        plt.plot(soc_e, tensao_e, 'bo', label="Dados Medidos (Pontos 'e' MPDch)", alpha=0.6)
-        plt.plot(soc_linha_suave, tensao_simulada, 'r-', linewidth=2.5, label="Modelo 2-Exp (Curve Fit)")
-        
-        plt.title('Identificação da Tensão de Circuito Aberto (OCV)', fontsize=14)
-        plt.xlabel('State of Charge (SOC)', fontsize=12)
-        plt.ylabel('Tensão de Repouso (V)', fontsize=12)
-        plt.legend(fontsize=12)
-        plt.grid(True, linestyle='--', alpha=0.7)
-        plt.show()
-        
-        return popt
+        return popt, soc_e, tensao_e, soc_linha_suave, tensao_simulada
 
     except RuntimeError as e:
         print(f"O algoritmo falhou a convergir: {e}")
         return None
+    
+
+

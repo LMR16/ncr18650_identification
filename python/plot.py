@@ -127,3 +127,20 @@ def plotar_R0_vs_soc(path, R0_ab, R0_cd):
     plt.legend(fontsize=11)
     plt.tight_layout()
     plt.show()
+
+
+
+def plot_ocv_curve(soc_e, tensao_e, soc_linha_suave, tensao_simulada):
+
+    plt.figure(figsize=(10, 6))
+    plt.plot(soc_e, tensao_e, 'bo', label="Dados Medidos (Pontos 'e' MPDch)", alpha=0.6)
+    plt.plot(soc_linha_suave, tensao_simulada, 'r-', linewidth=2.5, label="Modelo 2-Exp (Curve Fit)")
+    
+    plt.title('Identificação da Tensão de Circuito Aberto (OCV)', fontsize=14)
+    plt.xlabel('State of Charge (SOC)', fontsize=12)
+    plt.ylabel('Tensão de Repouso (V)', fontsize=12)
+    plt.legend(fontsize=12)
+    plt.grid(True, linestyle='--', alpha=0.7)
+    plt.show()
+
+    return None

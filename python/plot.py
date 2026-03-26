@@ -3,6 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from pathlib import Path
 from data import opening_data, encontrar_pontos_pulso
+from scipy.integrate import cumulative_trapezoid
 
 
 # ----------------------- PLOTING ---------------------------------------
@@ -95,6 +96,8 @@ def plotar_R0_vs_soc(path, R0_ab, R0_cd):
     """
     Plota o R0 (média de ab e cd) em relação ao SOC, replicando a Figura 7b do artigo.
     """
+
+    Qn = 3.08
     # 1. Carregar os dados originais para obter o tempo e os índices
     time, voltage, current = opening_data(path) ## MPDCH
     pulsos = encontrar_pontos_pulso(current)
@@ -103,9 +106,10 @@ def plotar_R0_vs_soc(path, R0_ab, R0_cd):
     # Como são arrays do numpy, a operação é feita elemento a elemento automaticamente
     R0_por_pulso = (R0_ab + R0_cd) / 2
 
-    # 3. Recriar o mapa global de SOC (de 1.0 a 0.0)
-    samples = len(time)
-    soc_global = np.linspace(1, 0, samples)
+    carga_drenada_As = cumulative_trapezoid(np.abs(current), time, initial=0)
+    Qn_coulombs = Qn * 3600 # Converte Ah para Amperes-segundo
+    
+    soc_global = 1.0 - (carga_drenada_As / Qn_coulombs)
 
     # 4. Extrair o SOC correspondente a cada pulso (no momento 'a', antes da corrente ligar)
     soc_dos_pulsos = []
@@ -127,7 +131,6 @@ def plotar_R0_vs_soc(path, R0_ab, R0_cd):
     plt.legend(fontsize=11)
     plt.tight_layout()
     plt.show()
-
 
 
 def plot_ocv_curve(soc_e, tensao_e, soc_linha_suave, tensao_simulada):

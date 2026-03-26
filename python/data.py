@@ -50,10 +50,10 @@ def encontrar_pontos_pulso(current, threshold=0.1, amostras_e=2):
             fim = fins_validos[0]
             
             a = ini
-            b = ini + 1
+            b = ini + 2
             c = fim 
-            d = fim + 2 
-            e = fim + 10 # Se for usar o 'e' para algo, ele fica um pouco depois do 'd'
+            d = fim + 2
+            e = fim + 10
             
             pulsos.append({'a': a, 'b': b, 'c': c, 'd': d, 'e': e})
             

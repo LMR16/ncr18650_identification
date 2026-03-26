@@ -4,46 +4,41 @@ from data import encontrar_pontos_pulso, opening_data
 
 
 def calc_R0(path):
-    """
-    Main function that calculates the R0 ohm resistance for each pulse
-
-    """
-    
     time, voltage, current = opening_data(path)
     pontos_pulsos = encontrar_pontos_pulso(current)
     
     R0_valores_cd = []
     R0_valores_ab = []
 
-    ## loop para o cálculo dos deltas e dos R0s em (a-b) e (c-d)
     for i, pts in enumerate(pontos_pulsos):
         a, b, c, d = pts['a'], pts['b'], pts['c'], pts['d']
         
-        # Delta de Tensão e Corrente no degrau inicial do pulso (a -> b)
+        # --- Cálculo AB (Início do pulso) ---
         delta_v_ab = np.abs(voltage[b] - voltage[a])
         delta_i_ab = np.abs(current[b] - current[a])
         
-        if delta_i_ab > 0:
-            r0 = delta_v_ab / delta_i_ab
-            R0_valores_ab.append(r0)
-            #print(f"Pulso {i+1}: Índices (a:{a}, b:{b}, c:{pts['c']}, d:{pts['d']}, e:{pts['e']}) | R0 = {r0:.5f} Ω")
+        # Filtro: só calcula se for um degrau real de corrente (> 1 Ampere)
+        if delta_i_ab > 1.0:
+            R0_valores_ab.append(delta_v_ab / delta_i_ab)
+        else:
+            R0_valores_ab.append(np.nan)
 
-        # Delta de Tensão e Corrente no degrau final do pulso (c -> d)
-        delta_v_cd = np.abs(voltage[c] - voltage[d])
-        delta_i_cd = np.abs(current[c] - current[d])
+        # --- Cálculo CD (Fim do pulso) ---
+        delta_v_cd = np.abs(voltage[d] - voltage[c])
+        delta_i_cd = np.abs(current[d] - current[c])
 
-        if delta_i_cd > 0:
-            r0 = delta_v_cd / delta_i_cd
-            R0_valores_cd.append(r0)
-            #print(f"Pulso {i+1}: Índices (a:{a}, b:{b}, c:{pts['c']}, d:{pts['d']}, e:{pts['e']}) | R0 = {r0:.5f} Ω")
+        if delta_i_cd > 1.0:
+            R0_valores_cd.append(delta_v_cd / delta_i_cd)
+        else:
+            R0_valores_cd.append(np.nan)
             
     R0_valores_ab = np.array(R0_valores_ab)
     R0_valores_cd = np.array(R0_valores_cd)
 
-    ## Calculates and prints the mean of R0
+    # Calcula as médias ignorando os possíveis NaN (falhas de medição)
     R0_values = np.concatenate((R0_valores_ab, R0_valores_cd))
-    R0_mean = np.mean(R0_values)
-    R0_median = np.median(R0_values)
+    R0_mean = np.nanmean(R0_values)
+    R0_median = np.nanmedian(R0_values)
     
-    return R0_mean, R0_median, R0_valores_ab, R0_valores_cd ## retorna os valores dos R0s já como np.arrays
+    return R0_mean, R0_median, R0_valores_ab, R0_valores_cd
 

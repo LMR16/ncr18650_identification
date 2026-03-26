@@ -127,9 +127,6 @@ def plot_points_bc(time, voltage, current):
 
     return None
 
-import numpy as np
-from scipy.optimize import curve_fit
-
 def calc_rc_params_nopulse(path):
     time, voltage, current = opening_data(path)    
     pulsos = encontrar_pontos_pulso(current)

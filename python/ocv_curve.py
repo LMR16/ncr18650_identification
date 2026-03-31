@@ -95,6 +95,7 @@ def identificar_ocv_ordem_n(soc_e, tensao_e, ordem=2):
     """
     Identifica os parâmetros da curva OCV usando uma soma de exponenciais.
     Usa inicializações assimétricas para evitar o colapso do otimizador.
+    Retorna os parâmetros, a função OCV e os dados empacotados para plotagem.
     """
     def modelo_ocv(soc, *params):
         y = np.full_like(soc, params[0], dtype=np.float64) 
@@ -142,11 +143,20 @@ def identificar_ocv_ordem_n(soc_e, tensao_e, ordem=2):
         soc_linha_suave = np.linspace(0, 1, 200)
         tensao_simulada = modelo_ocv(soc_linha_suave, *popt)
 
-        return popt, modelo_ocv, soc_linha_suave, tensao_simulada
+        # --- NOVO: Empacotando dados para enviar ao plots.py ---
+        dados_plot = {
+            'ordem': ordem,
+            'soc_alvo': soc_e,
+            'tensao_alvo': tensao_e,
+            'soc_suave': soc_linha_suave,
+            'linha_simulada': tensao_simulada
+        }
+
+        return popt, modelo_ocv, dados_plot
 
     except RuntimeError:
         print(f"ERRO: O SciPy não conseguiu convergir para a ordem {ordem}.")
-        return None, None, None, None
+        return None, None, None
     
 
 # ======================== OCV CURVE IDENTIFICATION WITH CHARGE AND DISCHARGE CURVES ========================
@@ -202,16 +212,22 @@ def processar_ocv_histerese(path_carga, path_descarga, ordem=3):
     ocv_media_real = (v_carg_sinc + v_desc_sinc) / 2.0
 
     # 6. Chamar a função de Identificação da OCV (que contém o K0)
-    popt, func_ocv, soc_suave, tensao_simulada = identificar_ocv_ordem_n(
+    popt, modelo_ocv, dados_plot = identificar_ocv_ordem_n(
         soc_comum, ocv_media_real, ordem=ordem
     )
+
+    ordem = dados_plot.get('ordem', 2)
+    soc_e = dados_plot['soc_alvo']
+    tensao_e = dados_plot['tensao_alvo']
+    soc_linha_suave = dados_plot['soc_suave']
+    tensao_simulada = dados_plot['linha_simulada']
 
     # 7. Gráfico Analítico
     if popt is not None:
         plt.figure(figsize=(10, 6))
         plt.plot(soc_comum, v_carg_sinc, 'g--', alpha=0.5, label='Ramo de Carga')
         plt.plot(soc_comum, v_desc_sinc, 'b--', alpha=0.5, label='Ramo de Descarga')
-        plt.plot(soc_suave, tensao_simulada, 'r-', linewidth=2, label=f'Modelo Exponencial (Ordem {ordem})')
+        plt.plot(soc_linha_suave, tensao_simulada, 'r-', linewidth=2, label=f'Modelo Exponencial (Ordem {ordem})')
 
         plt.title('Identificação da OCV Eliminando a Histerese', fontsize=14)
         plt.xlabel('State of Charge (SOC)', fontsize=12)
@@ -220,7 +236,7 @@ def processar_ocv_histerese(path_carga, path_descarga, ordem=3):
         plt.grid(True, linestyle='--', alpha=0.7)
         plt.show()
 
-    return popt, func_ocv, soc_suave, tensao_simulada, Qn_real
+    return popt, modelo_ocv, soc_linha_suave, tensao_simulada, Qn_real
 
 
 # ======================== OCV CURVE IDENTIFICATION POLINOMIAL ========================

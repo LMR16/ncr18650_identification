@@ -30,43 +30,47 @@ R0_mean,R0_median, R0_values_ab, R0_values_cd = calc_R0(MPDCH)   # Open and calc
 
 ## ========================= CALC Qn ================================================= ##
 
-time, voltage, current = opening_data(MPDCH)                     # Open MPDCH time, voltage and current data
+# Open MPDCH time, voltage and current data
+time_MPDCH, voltage_MPDCH, current_MPDCH = opening_data(MPDCH)
 time_CDCH, voltage_CDCH, current_CDCH = opening_data(CDCH)
 time_CCCV, voltage_CCCV, current_CCCV = opening_data(CCCV)
 
-## Calculo do Qn real usando método dos trapézios para MPDCH
-# carga_total_As = np.trapezoid(np.abs(current), time)
-# Qn_real = carga_total_As / 3600
+# Calculo do Qn real usando método dos trapézios para MPDCH
+carga_total_As = np.trapezoid(np.abs(current_MPDCH), time_MPDCH)
+Qn_real_MPDCH = carga_total_As / 3600
 
 ## Calculo do Qn real usando método dos trapézios para CDCH
 carga_total_As_2 = np.trapezoid(np.abs(current_CDCH), time_CDCH)
-Qn_real_2 = carga_total_As_2 / 3600
+Qn_real_CDCH = carga_total_As_2 / 3600
 
 ## Calculo do Qn real usando método dos trapézios para CCCV
 carga_total_As_3 = np.trapezoid(np.abs(current_CCCV), time_CCCV)
-Qn_real_3 = carga_total_As_3 / 3600
+Qn_real_CCCV = carga_total_As_3 / 3600
 
-Qn_real = (Qn_real_2 + Qn_real_3)/2
+Q_real_mean = (Qn_real_CDCH + Qn_real_CCCV) / 2
 
+print(f"Qn_real_MPDCH: {Qn_real_MPDCH:.3f} Ah")
+print(f"Qn_real_CDCH: {Qn_real_CDCH:.3f} Ah")
+print(f"Qn_real_CCCV: {Qn_real_CCCV:.3f} Ah")
+print(f"Qn_real_mean: {Q_real_mean:.3f} Ah")
+
+## ========================= CALC SOC ================================================= ##
 
 # A) SOC da Descarga: A bateria começou cheia (1.0) e foi esvaziando
 q_desc_acumulado = cumulative_trapezoid(np.abs(current_CDCH), time_CDCH, initial=0)
-soc_descarga = 1.0 - (q_desc_acumulado / (Qn_real * 3600.0))
+soc_descarga = 1.0 - (q_desc_acumulado / (Q_real_mean * 3600.0))
 
 # B) SOC da Carga: A bateria começou vazia (0.0) e foi enchendo
 q_carg_acumulado = cumulative_trapezoid(np.abs(current_CCCV), time_CCCV, initial=0)
-soc_carga = q_carg_acumulado / (Qn_real * 3600.0)
+soc_carga = q_carg_acumulado / (Q_real_mean * 3600.0)
 
-## ========================================================================== ##
+## ========================= CALC OCV ================================================= ##
 
-pulsos = encontrar_pontos_pulso(current)
+pulsos = encontrar_pontos_pulso(current_MPDCH)
 
 params = calc_rc_params_nopulse(MPDCH)                           # Calculates the values of 2RC params using MPDCH data
 
 soc_e, tensao_e = ocv_curve(MPDCH)                               # Get the 'e' points for Soc and voltage
-popt_ocv, func_ocv, soc_linha_suave, tensao_simulada = identificar_ocv_ordem_n(soc_e, tensao_e, ordem=2)
-
-popt_2, func_ocv_2, soc_suave_2, tensao_simulada_2, Qn_real_2 = processar_ocv_histerese(CCCV,CDCH, ordem=2)
 
 
 # ----------------------- PLOTS -----------------------------------------------------
@@ -75,18 +79,16 @@ popt_2, func_ocv_2, soc_suave_2, tensao_simulada_2, Qn_real_2 = processar_ocv_hi
 #plot_CDCH()
 #plot_MPDCH(MPDCH)
 #plot_RC_curves()
-#plot_ocv_curve(soc_e, tensao_e, soc_linha_suave, tensao_simulada)
+#plot_ocv_curve(soc_e, tensao_e, soc_suave, tensao_simulada)
 #plotar_R0_vs_soc(MPDCH, R0_values_ab, R0_values_cd)
 
 # ----------------------- PRINT VALUES ----------------------------------------------
 
 
-# print('\nR0_mean =', R0_mean)                               #Print value of R0
+print('\nR0_mean =', R0_mean)                               #Print value of R0
 
-# print(f"\nCapacidade REAL da bateria: {Qn_real:.3f} Ah")      #Print Q_real of the Battery
-
-# df = pd.DataFrame(params) # Get the calculated params and transforms into a dataframe for better visualization
-# print(df.mean())          # Displays the result
+df = pd.DataFrame(params) # Get the calculated params and transforms into a dataframe for better visualization
+print(df.mean())          # Displays the result
 
 
 # ----------------------- DEBUG ------------------------------------------------------
@@ -142,18 +144,22 @@ def auditar_pontos_pulso(time, voltage, current, pulsos, pulso_inicio=1, pulso_f
 
 # ----------------------- VALIDAÇÃO DO MODELO ---------------------------------------
 
+# popt_ocv_MPDCH, modelo_ocv_MPDCH, dados_plot_MPDCH = identificar_ocv_ordem_n(soc_e, tensao_e, ordem=2)
+
 # v_sim, soc_sim, erro_sim = simular_bateria_continua(
-#     time=time, 
-#     voltage=voltage, 
-#     current=current, 
-#     params=params, 
+#     time=time_MPDCH, 
+#     voltage=voltage_MPDCH, 
+#     current=current_MPDCH, 
+#     params=params, # RC params
 #     R0=R0_median, 
-#     func_ocv=func_ocv,
-#     popt_ocv=popt_ocv,
-#     Qn=Qn_real
+#     func_ocv=modelo_ocv_MPDCH,
+#     popt_ocv=popt_ocv_MPDCH,
+#     Qn=Qn_real_MPDCH
 # )
 
 # ----------------------- VALIDAÇÃO DO MODELO USANDO PSEUDO OCV ---------------------------------------
+
+# popt_ocv_histerese, func_ocv_histerese, soc_suave_histerese, tensao_simulada_histerese, Qn_real_histerese = processar_ocv_histerese(CCCV,CDCH, ordem=2)
 
 
 ## Simulando teste CDCH
@@ -164,55 +170,80 @@ def auditar_pontos_pulso(time, voltage, current, pulsos, pulso_inicio=1, pulso_f
 #     current=current_CDCH, 
 #     params=params, 
 #     R0=R0_median, 
-#     func_ocv=func_ocv_2,
-#     popt_ocv=popt_2,
-#     Qn=Qn_real_2
+#     func_ocv=func_ocv_histerese,
+#     popt_ocv=popt_ocv_histerese,
+#     Qn=Qn_real_histerese
 # )
 
 ## Simulando teste MPDCH
 
 # v_sim, soc_sim, erro_sim = simular_bateria_continua(
-#     time=time, 
-#     voltage=voltage, 
-#     current=current, 
+#     time=time_MPDCH, 
+#     voltage=voltage_MPDCH, 
+#     current=current_MPDCH, 
 #     params=params, 
 #     R0=R0_median, 
-#     func_ocv=func_ocv_2,
-#     popt_ocv=popt_2,
-#     Qn=Qn_real_2
+#     func_ocv=func_ocv_histerese,
+#     popt_ocv=popt_ocv_histerese,
+#     Qn=Q_real_mean
 # )
 
-## Aqui ele identifica o OCV com uma funcao polinomial de ordem n a pertir das curvas de MPDCH
+# ----------------------- VALIDAÇÃO DO MODELO USANDO POLINOMIAL OCV ---------------------------------------
 
-popt_poli_mpdch, func_ocv_poli_mpdch, soc_suave, v_suave = identificar_ocv_polinomial(soc_e, tensao_e, ordem=6)
+
+## Aqui ele identifica o OCV com uma funcao POLINOMIAL de ordem n a pertir das curvas de MPDCH
+
+# popt_poli_mpdch, func_ocv_poli_mpdch, soc_suave, v_suave = identificar_ocv_polinomial(soc_e, tensao_e, ordem=6)
 
 # v_sim, soc_sim, erro_sim = simular_bateria_continua(
-#     time=time, 
-#     voltage=voltage, 
-#     current=current, 
+#     time=time_MPDCH, 
+#     voltage=voltage_MPDCH, 
+#     current=current_MPDCH, 
 #     params=params, 
 #     R0=R0_median, 
 #     func_ocv=func_ocv_poli_mpdch,
 #     popt_ocv=popt_poli_mpdch,
-#     Qn=Qn_real_2
+#     Qn=Qn_real_MPDCH
 # )
 
 
 ## Aqui ele identifica o OCV com uma funcao polinomial de ordem n a pertir das curvas CCCV e CDCH
 
-popt_poli_hist, func_ocv_poli_hist, soc_suave, v_suave = identificar_ocv_polinomial(
-    soc_carga, voltage_CCCV, 
-    soc_descarga, voltage_CDCH, 
-    ordem=5
-)
+# popt_poli_hist, func_ocv_poli_hist, soc_suave, v_suave = identificar_ocv_polinomial(
+#     soc_carga, voltage_CCCV, 
+#     soc_descarga, voltage_CDCH, 
+#     ordem=6
+# )
 
-v_sim, soc_sim, erro_sim = simular_bateria_continua(
-    time=time, 
-    voltage=voltage, 
-    current=current, 
-    params=params, 
-    R0=R0_median, 
-    func_ocv=func_ocv_poli_hist,
-    popt_ocv=popt_poli_hist,
-    Qn=Qn_real_2
-)
+# v_sim, soc_sim, erro_sim = simular_bateria_continua(
+#     time=time_CDCH, 
+#     voltage=voltage_CDCH, 
+#     current=current_CDCH, 
+#     params=params, 
+#     R0=R0_median, 
+#     func_ocv=func_ocv_poli_hist,
+#     popt_ocv=popt_poli_hist,
+#     Qn=Qn_real_CDCH
+# )
+
+
+
+
+# corrente_simulacao = np.abs(current)
+
+# popt_ocv, func_ocv, dados_grafico_ocv = identificar_ocv_ordem_n(soc_e, tensao_e, ordem=2)
+
+# # 2. Plota apenas a curva OCV limpa
+# plot_ocv_curve(dados_grafico_ocv)
+
+
+# v_sim, soc_sim, erro_sim = simular_bateria_continua(
+#     time=time, 
+#     voltage=voltage, 
+#     current=corrente_simulacao, 
+#     params=params, # parametros RC
+#     R0=R0_median, 
+#     func_ocv=func_ocv,
+#     popt_ocv=popt_ocv,
+#     Qn=Qn_real_mp
+# )

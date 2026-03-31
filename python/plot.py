@@ -133,17 +133,35 @@ def plotar_R0_vs_soc(path, R0_ab, R0_cd):
     plt.show()
 
 
-def plot_ocv_curve(soc_e, tensao_e, soc_linha_suave, tensao_simulada):
+def plot_ocv_curve(dados_plot):
+    """
+    Recebe o dicionário de dados da identificação matemática e plota a curva OCV.
+    """
+    # 1. Desempacotar os "novos parâmetros" do dicionário
+    ordem = dados_plot.get('ordem', 2)
+    soc_e = dados_plot['soc_alvo']
+    tensao_e = dados_plot['tensao_alvo']
+    soc_linha_suave = dados_plot['soc_suave']
+    tensao_simulada = dados_plot['linha_simulada']
 
+    # 2. Construção do Gráfico
     plt.figure(figsize=(10, 6))
-    plt.plot(soc_e, tensao_e, 'bo', label="Dados Medidos (Pontos 'e' MPDch)", alpha=0.6)
-    plt.plot(soc_linha_suave, tensao_simulada, 'r-', linewidth=2.5, label="Modelo 2-Exp (Curve Fit)")
     
+    # Plota os dados medidos (Pontos azuis)
+    plt.plot(soc_e, tensao_e, 'bo', label="Dados Medidos", alpha=0.6)
+    
+    # Plota a curva do modelo ajustado (Linha vermelha contínua)
+    plt.plot(soc_linha_suave, tensao_simulada, 'r-', linewidth=2.5, label=f"Modelo Exponencial O({ordem})")
+    
+    # 3. Labels
     plt.title('Identificação da Tensão de Circuito Aberto (OCV)', fontsize=14)
     plt.xlabel('State of Charge (SOC)', fontsize=12)
     plt.ylabel('Tensão de Repouso (V)', fontsize=12)
     plt.legend(fontsize=12)
     plt.grid(True, linestyle='--', alpha=0.7)
+    
+    plt.tight_layout()
     plt.show()
 
     return None
+

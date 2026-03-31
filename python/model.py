@@ -51,19 +51,24 @@ def simular_bateria_continua(time, voltage, current, params, R0, func_ocv, popt_
     
     v_terminal_sim = ocv_sim - v1_sim - v2_sim - (R0 * current)
 
-    # 6. Cálculo do Erro e Gráficos
-    erro = (voltage - v_terminal_sim)/voltage
-    rmse = (np.sqrt(np.mean(erro**2)))*100
-    print(f"Validação Concluída! Erro RMSE Final: {rmse:.2f} %")
+# 6. Cálculo do Erro e Gráficos
+    erro_pct = (voltage - v_terminal_sim)/voltage
+    rmse_pct = (np.sqrt(np.mean(erro_pct**2)))*100
+    
+    # Erro absoluto em Volts para calcular os mV
+    erro_volts = voltage - v_terminal_sim
+    rmse_mv = np.sqrt(np.mean(erro_volts**2)) * 1000.0
+
+    print(f"Validação Concluída! Erro RMSE Final: {rmse_pct:.2f} %")
 
     plt.figure(figsize=(12, 6))
     plt.plot(time, voltage, 'k-', label='Tensão Real')
     plt.plot(time, v_terminal_sim, 'r--', label='Tensão Simulada')
-    plt.title(f"Validação do Modelo 2RC (RMSE: {rmse*1000:.2f} mV)")
+    plt.title(f"Validação do Modelo 2RC (RMSE: {rmse_mv*1000:.2f} mV)")
     plt.xlabel('Tempo (s)')
     plt.ylabel('Tensão (V)')
     plt.legend()
     plt.grid(True)
     plt.show()
     
-    return v_terminal_sim, soc_sim, erro
+    return v_terminal_sim, soc_sim, erro_volts

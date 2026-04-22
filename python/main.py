@@ -1,9 +1,9 @@
 from R0_function import calc_R0
-from RC_function import calc_rc_params_nopulse
+from RC_function import calc_rc_params_nopulse, calc_rc_params_lut
 from data import  opening_data, encontrar_pontos_pulso
-from ocv_curve import ocv_curve, processar_ocv_histerese, identificar_ocv_ordem_n, identificar_ocv_polinomial
+from ocv_curve import ocv_curve, processar_ocv_histerese, identificar_ocv_ordem_n, identificar_ocv_polinomial, identificar_ocv_ordem_n_sem_k0
 from plot import plotar_R0_vs_soc, plot_CCCV, plot_CDCH, plot_MPDCH, plot_RC_curves, plot_ocv_curve
-from model import simular_bateria_continua
+from model import simular_bateria_continua, simular_bateria_continua_lut
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -19,14 +19,21 @@ DIRETORIO_ATUAL = Path(__file__).parent
 # Volta uma pasta (.parent) e entra na BID003
 DIRETORIO_DADOS = DIRETORIO_ATUAL.parent / "BID003"
 
+
+
 # Caminhos dos datasets
 CCCV = DIRETORIO_DADOS / "BID003_CCCV005.0_02022026.txt"
 CDCH = DIRETORIO_DADOS / "BID003_CDch005.0_02022026.txt"
 MPDCH = DIRETORIO_DADOS / "BID003_MPDch_24022026.txt"
+MPDCH_NR = DIRETORIO_DADOS / "BID003_MPDch_17042026.txt" ## NR means No Relay
+MPDCH_5 = DIRETORIO_DADOS / "BID005_MPDch_10032026.txt"
+MPDCH_8 = DIRETORIO_DADOS / "BID008_MPDch_27032026.txt"
+
+
 
 
 # ----------------------- GET PARAMS ---------------------------------------
-R0_mean,R0_median, R0_values_ab, R0_values_cd = calc_R0(MPDCH)   # Open and calc values of R0
+R0_mean,R0_median, R0_values_ab, R0_values_cd = calc_R0(MPDCH_NR)   # Open and calc values of R0
 
 ## ========================= CALC Qn ================================================= ##
 
@@ -77,7 +84,7 @@ soc_e, tensao_e = ocv_curve(MPDCH)                               # Get the 'e' p
 
 #plot_CCCV()
 #plot_CDCH()
-#plot_MPDCH(MPDCH)
+plot_MPDCH(MPDCH_8)
 #plot_RC_curves()
 #plot_ocv_curve(soc_e, tensao_e, soc_suave, tensao_simulada)
 #plotar_R0_vs_soc(MPDCH, R0_values_ab, R0_values_cd)
@@ -159,7 +166,9 @@ def auditar_pontos_pulso(time, voltage, current, pulsos, pulso_inicio=1, pulso_f
 
 # ----------------------- VALIDAÇÃO DO MODELO USANDO PSEUDO OCV ---------------------------------------
 
-# popt_ocv_histerese, func_ocv_histerese, soc_suave_histerese, tensao_simulada_histerese, Qn_real_histerese = processar_ocv_histerese(CCCV,CDCH, ordem=2)
+#popt_ocv_histerese, func_ocv_histerese, soc_suave_histerese, tensao_simulada_histerese, Qn_real_histerese = processar_ocv_histerese(CCCV,CDCH, ordem=2)
+
+#popt, modelo_ocv, dados_plot_histerese = identificar_ocv_ordem_n_sem_k0(soc_e, tensao_e, ordem=2)
 
 
 ## Simulando teste CDCH
@@ -185,6 +194,34 @@ def auditar_pontos_pulso(time, voltage, current, pulsos, pulso_inicio=1, pulso_f
 #     R0=R0_median, 
 #     func_ocv=func_ocv_histerese,
 #     popt_ocv=popt_ocv_histerese,
+#     Qn=Q_real_mean
+# )
+
+# v_sim, soc_sim, erro_sim = simular_bateria_continua(
+#     time=time_MPDCH, 
+#     voltage=voltage_MPDCH, 
+#     current=current_MPDCH, 
+#     params=params,
+#     R0=R0_median, 
+#     func_ocv=modelo_ocv,
+#     popt_ocv=popt,
+#     Qn=Q_real_mean
+# )
+
+# ----------------------- MODO LUT (LOOK-UP TABLE) ----------------------------------
+# print("\n" + "="*50)
+# print("INICIANDO SIMULAÇÃO LUT (PARÂMETROS DINÂMICOS)")
+# print("="*50)
+
+# params_lut = calc_rc_params_lut(MPDCH)
+
+# v_sim_lut, soc_sim_lut, erro_sim_lut = simular_bateria_continua_lut(
+#     time=time_MPDCH, 
+#     voltage=voltage_MPDCH, 
+#     current=current_MPDCH, 
+#     lut_params=params_lut,
+#     func_ocv=modelo_ocv,
+#     popt_ocv=popt,
 #     Qn=Q_real_mean
 # )
 
@@ -227,23 +264,3 @@ def auditar_pontos_pulso(time, voltage, current, pulsos, pulso_inicio=1, pulso_f
 # )
 
 
-
-
-# corrente_simulacao = np.abs(current)
-
-# popt_ocv, func_ocv, dados_grafico_ocv = identificar_ocv_ordem_n(soc_e, tensao_e, ordem=2)
-
-# # 2. Plota apenas a curva OCV limpa
-# plot_ocv_curve(dados_grafico_ocv)
-
-
-# v_sim, soc_sim, erro_sim = simular_bateria_continua(
-#     time=time, 
-#     voltage=voltage, 
-#     current=corrente_simulacao, 
-#     params=params, # parametros RC
-#     R0=R0_median, 
-#     func_ocv=func_ocv,
-#     popt_ocv=popt_ocv,
-#     Qn=Qn_real_mp
-# )

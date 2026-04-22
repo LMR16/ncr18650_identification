@@ -166,8 +166,83 @@ def calc_rc_params_nopulse(path):
             params['C1'].append(C1)
             params['R2'].append(R2)
             params['C2'].append(C2)
-            
         except Exception:
             pass 
+
+    return params
+
+def calc_rc_params_lut(path):
+    time, voltage, current = opening_data(path)    
+    pulsos = encontrar_pontos_pulso(current)
+    params = {'soc': [], 'R0': [], 'R1': [], 'C1': [], 'R2': [], 'C2': []}
+
+    samples = len(time)
+    soc_global = np.linspace(1, 0, samples)
+
+    for i, pls in enumerate(pulsos): 
+        a, b, c, d = pls['a'], pls['b'], pls['c'], pls['d']
+        
+        soc_pulso = soc_global[a]
+        params['soc'].append(soc_pulso)
+        
+        a_proximo = pulsos[i+1]['a'] if i < len(pulsos) - 1 else d + 600
+
+        t_fatiado = np.array(time[d:a_proximo], dtype=float)
+        
+        sucesso = False
+        if len(t_fatiado) >= 10:
+            # O ajuste exponencial parte do instante em que a corrente cessa (t=c)
+            t_norm = t_fatiado - float(time[c])
+            v_curve = np.array(voltage[d:a_proximo], dtype=float)
+            y_alvo = v_curve[-1] - v_curve
+
+            p0 = [abs(y_alvo[0])*0.5, 100.0, abs(y_alvo[0])*0.5, 500.0]
+            bounds = ([0.0, 1.0, 0.0, 1.0], [1.0, 500.0, 1.0, 5000.0])
+
+            try:
+                popt, _ = curve_fit(func_1, t_norm, y_alvo, p0=p0, bounds=bounds)
+                x1, tau1, x2, tau2 = popt
+                
+                if tau1 > tau2:
+                    tau1, tau2, x1, x2 = tau2, tau1, x2, x1
+                
+                I_pulso = np.max(np.abs(current[b:c])) 
+                tempo_pulso = abs(float(time[c]) - float(time[b]))
+
+                R1 = x1 / (I_pulso * (1 - np.exp(-tempo_pulso / tau1)))
+                R2 = x2 / (I_pulso * (1 - np.exp(-tempo_pulso / tau2)))
+                C1 = tau1 / R1
+                C2 = tau2 / R2
+
+                # Extrapolação Matemática para o R0 Puro
+                v_infty = v_curve[-1]
+                v_c = voltage[c]
+                delta_v_total = abs(v_infty - v_c)
+                
+                R0_puro = (delta_v_total - x1 - x2) / I_pulso
+
+                params['R0'].append(R0_puro)
+                params['R1'].append(R1)
+                params['C1'].append(C1)
+                params['R2'].append(R2)
+                params['C2'].append(C2)
+                
+                sucesso = True
+                
+            except Exception:
+                pass 
+                
+        if not sucesso:
+            params['R0'].append(np.nan)
+            params['R1'].append(np.nan)
+            params['C1'].append(np.nan)
+            params['R2'].append(np.nan)
+            params['C2'].append(np.nan)
+
+    # Substitui os possíveis NaNs pela mediana para não quebrar a interpolação mais à frente
+    for key in ['R0', 'R1', 'C1', 'R2', 'C2']:
+        arr = np.array(params[key])
+        arr[np.isnan(arr)] = np.nanmedian(arr)
+        params[key] = arr.tolist()
 
     return params

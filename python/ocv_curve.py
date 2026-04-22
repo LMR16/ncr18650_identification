@@ -315,3 +315,78 @@ def identificar_ocv_polinomial(soc_a, tensao_a, soc_b=None, tensao_b=None, ordem
     plt.show()
 
     return coeficientes, modelo_ocv_poli, soc_linha_suave, linha_simulada
+
+
+def identificar_ocv_ordem_n_sem_k0(soc_e, tensao_e, ordem=2):
+    """
+    Identifica os parâmetros da curva OCV usando uma soma de exponenciais.
+    Versão SEM K0 (sem o termo constante de tensão).
+    """
+    def modelo_ocv(soc, *params):
+        y = np.zeros_like(soc, dtype=np.float64) # Inicia no zero em vez de K0
+        for i in range(0, len(params), 2):       # Começa no índice 0 ao invés do 1
+            k = params[i]
+            alpha = params[i+1]
+            y += k * np.exp(alpha * soc)
+        return y
+
+    # Arranjos de parâmetros iniciais vazios (sem K0)
+    p0 = []          
+    limites_inf = [] 
+    limites_sup = [] 
+
+    # Os mesmos chutes padrão para começar a procura
+    chutes_k = [-0.2, 0.4, 0.1, -0.05, 0.02]
+    chutes_alpha = [-15.0, -1.5, 2.0, -30.0, 5.0]
+
+    for i in range(ordem):
+        idx = i % len(chutes_k)
+        p0.extend([chutes_k[idx], chutes_alpha[idx]])
+        
+        limites_inf.extend([-1000.0, -200.0]) 
+        limites_sup.extend([1000.0, 200.0])   
+
+    print(f"\n=== Ajuste OCV (Exponencial de Ordem {ordem} - SEM K0) ===")
+    
+    try:
+        popt, pcov = curve_fit(modelo_ocv, soc_e, tensao_e, 
+                               p0=p0, bounds=(limites_inf, limites_sup), 
+                               maxfev=500000)
+        
+        # Impressão adaptada para começar no índice 0
+        for i in range(0, len(popt), 2):
+            n_termo = (i // 2) + 1
+            print(f"K{n_termo} = {popt[i]:.5f} | alpha{n_termo} = {popt[i+1]:.5f}")
+            
+        erro = (tensao_e - modelo_ocv(soc_e, *popt))/tensao_e
+        rmse = (np.sqrt(np.mean(erro**2)))*100
+        print(f"RMSE do Ajuste: {rmse:.2f}%")
+        print("==========================================================")
+
+        soc_linha_suave = np.linspace(0, 1, 200)
+        tensao_simulada = modelo_ocv(soc_linha_suave, *popt)
+
+        dados_plot = {
+            'ordem': ordem,
+            'soc_alvo': soc_e,
+            'tensao_alvo': tensao_e,
+            'soc_suave': soc_linha_suave,
+            'linha_simulada': tensao_simulada
+        }
+
+        plt.figure(figsize=(10, 6))
+        plt.plot(soc_e, tensao_e, 'bo', label="Dados Medidos", alpha=0.6)
+        plt.plot(soc_linha_suave, tensao_simulada, 'r-', linewidth=2.5, label=f"Modelo Exponencial O({ordem}) - SEM K0")
+        plt.title('Identificação da Tensão de Circuito Aberto (OCV)', fontsize=14)
+        plt.xlabel('State of Charge (SOC)', fontsize=12)
+        plt.ylabel('Tensão de Repouso (V)', fontsize=12)
+        plt.legend(fontsize=12)
+        plt.grid(True, linestyle='--', alpha=0.7)
+        plt.tight_layout()
+        plt.show()
+
+        return popt, modelo_ocv, dados_plot
+
+    except RuntimeError:
+        print(f"ERRO: O SciPy não conseguiu convergir para a ordem {ordem}.")
+        return None, None, None

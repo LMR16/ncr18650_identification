@@ -19,17 +19,11 @@ DIRETORIO_ATUAL = Path(__file__).parent
 # Volta uma pasta (.parent) e entra na BID003
 DIRETORIO_DADOS = DIRETORIO_ATUAL.parent / "BID003"
 
-
-
 # Caminhos dos datasets
 CCCV = DIRETORIO_DADOS / "BID003_CCCV005.0_02022026.txt"
 CDCH = DIRETORIO_DADOS / "BID003_CDch005.0_02022026.txt"
-MPDCH = DIRETORIO_DADOS / "BID003_MPDch_24022026.txt"
+MPDCH = DIRETORIO_DADOS / "BID003_MPDch_24022026.txt" ## With relay
 MPDCH_NR = DIRETORIO_DADOS / "BID003_MPDch_17042026.txt" ## NR means No Relay
-MPDCH_5 = DIRETORIO_DADOS / "BID005_MPDch_10032026.txt"
-MPDCH_8 = DIRETORIO_DADOS / "BID008_MPDch_27032026.txt"
-
-
 
 
 # ----------------------- GET PARAMS ---------------------------------------
@@ -38,7 +32,7 @@ R0_mean,R0_median, R0_values_ab, R0_values_cd = calc_R0(MPDCH_NR)   # Open and c
 ## ========================= CALC Qn ================================================= ##
 
 # Open MPDCH time, voltage and current data
-time_MPDCH, voltage_MPDCH, current_MPDCH = opening_data(MPDCH)
+time_MPDCH, voltage_MPDCH, current_MPDCH = opening_data(MPDCH_NR)
 time_CDCH, voltage_CDCH, current_CDCH = opening_data(CDCH)
 time_CCCV, voltage_CCCV, current_CCCV = opening_data(CCCV)
 
@@ -75,27 +69,27 @@ soc_carga = q_carg_acumulado / (Q_real_mean * 3600.0)
 
 pulsos = encontrar_pontos_pulso(current_MPDCH)
 
-params = calc_rc_params_nopulse(MPDCH)                           # Calculates the values of 2RC params using MPDCH data
+params = calc_rc_params_nopulse(MPDCH_NR)      # Calculates the values of 2RC params using MPDCH data
 
-soc_e, tensao_e = ocv_curve(MPDCH)                               # Get the 'e' points for Soc and voltage
+soc_e, tensao_e = ocv_curve(MPDCH_NR)          # Get the 'e' points for Soc and voltage
 
 
 # ----------------------- PLOTS -----------------------------------------------------
 
 #plot_CCCV()
 #plot_CDCH()
-plot_MPDCH(MPDCH_8)
+#plot_MPDCH(MPDCH_NR)
 #plot_RC_curves()
 #plot_ocv_curve(soc_e, tensao_e, soc_suave, tensao_simulada)
-#plotar_R0_vs_soc(MPDCH, R0_values_ab, R0_values_cd)
+#plotar_R0_vs_soc(MPDCH_NR, R0_values_ab, R0_values_cd)
 
 # ----------------------- PRINT VALUES ----------------------------------------------
 
 
 print('\nR0_mean =', R0_mean)                               #Print value of R0
 
-df = pd.DataFrame(params) # Get the calculated params and transforms into a dataframe for better visualization
-print(df.mean())          # Displays the result
+#df = pd.DataFrame(params) # Get the calculated params and transforms into a dataframe for better visualization
+#print(df.mean())          # Displays the result
 
 
 # ----------------------- DEBUG ------------------------------------------------------
@@ -151,7 +145,11 @@ def auditar_pontos_pulso(time, voltage, current, pulsos, pulso_inicio=1, pulso_f
 
 # ----------------------- VALIDAÇÃO DO MODELO ---------------------------------------
 
-# popt_ocv_MPDCH, modelo_ocv_MPDCH, dados_plot_MPDCH = identificar_ocv_ordem_n(soc_e, tensao_e, ordem=2)
+#opt_ocv_MPDCH, modelo_ocv_MPDCH, dados_plot_MPDCH = identificar_ocv_ordem_n(soc_e, tensao_e, ordem=2)
+popt_ocv_MPDCH, modelo_ocv_MPDCH, dados_plot_MPDCH = identificar_ocv_ordem_n_sem_k0(soc_e, tensao_e, ordem=2)
+
+plot_ocv_curve(dados_plot_MPDCH)
+
 
 # v_sim, soc_sim, erro_sim = simular_bateria_continua(
 #     time=time_MPDCH, 
@@ -209,21 +207,21 @@ def auditar_pontos_pulso(time, voltage, current, pulsos, pulso_inicio=1, pulso_f
 # )
 
 # ----------------------- MODO LUT (LOOK-UP TABLE) ----------------------------------
-# print("\n" + "="*50)
-# print("INICIANDO SIMULAÇÃO LUT (PARÂMETROS DINÂMICOS)")
-# print("="*50)
+print("\n" + "="*50)
+print("INICIANDO SIMULAÇÃO LUT (PARÂMETROS DINÂMICOS)")
+print("="*50)
 
-# params_lut = calc_rc_params_lut(MPDCH)
+params_lut = calc_rc_params_lut(MPDCH_NR)
 
-# v_sim_lut, soc_sim_lut, erro_sim_lut = simular_bateria_continua_lut(
-#     time=time_MPDCH, 
-#     voltage=voltage_MPDCH, 
-#     current=current_MPDCH, 
-#     lut_params=params_lut,
-#     func_ocv=modelo_ocv,
-#     popt_ocv=popt,
-#     Qn=Q_real_mean
-# )
+v_sim_lut, soc_sim_lut, erro_sim_lut = simular_bateria_continua_lut(
+    time=time_MPDCH, 
+    voltage=voltage_MPDCH, 
+    current=current_MPDCH, 
+    lut_params=params_lut,
+    func_ocv=modelo_ocv_MPDCH,
+    popt_ocv=popt_ocv_MPDCH,
+    Qn=Qn_real_MPDCH
+)
 
 # ----------------------- VALIDAÇÃO DO MODELO USANDO POLINOMIAL OCV ---------------------------------------
 

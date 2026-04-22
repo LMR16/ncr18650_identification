@@ -317,25 +317,48 @@ def identificar_ocv_polinomial(soc_a, tensao_a, soc_b=None, tensao_b=None, ordem
     return coeficientes, modelo_ocv_poli, soc_linha_suave, linha_simulada
 
 
+import numpy as np
+from scipy.optimize import curve_fit
+import matplotlib.pyplot as plt
+
+import numpy as np
+from scipy.optimize import curve_fit
+import matplotlib.pyplot as plt
+
 def identificar_ocv_ordem_n_sem_k0(soc_e, tensao_e, ordem=2):
     """
     Identifica os parâmetros da curva OCV usando uma soma de exponenciais.
-    Versão SEM K0 (sem o termo constante de tensão).
+    Versão SEM K0.
+    Inclui máscara robusta do NumPy para limpar múltiplos pontos espúrios.
     """
+    
+    # =========================================================================
+    # FILTRO DE SANIDADE FÍSICA (ROBUSTO)
+    # =========================================================================
+    # A máscara varre o vetor inteiro e mantém APENAS os pontos reais de repouso.
+    limite_seguranca = 3.10  # Tensão mínima realista de repouso (OCV)
+    
+    mascara_validos = tensao_e >= limite_seguranca
+    pontos_removidos = len(tensao_e) - np.sum(mascara_validos)
+    
+    if pontos_removidos > 0:
+        print(f"\n[AVISO] {pontos_removidos} ponto(s) espúrio(s) detetado(s) (V < {limite_seguranca}V). Removendo...")
+        soc_e = soc_e[mascara_validos]       
+        tensao_e = tensao_e[mascara_validos] 
+    # =========================================================================
+
     def modelo_ocv(soc, *params):
-        y = np.zeros_like(soc, dtype=np.float64) # Inicia no zero em vez de K0
-        for i in range(0, len(params), 2):       # Começa no índice 0 ao invés do 1
+        y = np.zeros_like(soc, dtype=np.float64) 
+        for i in range(0, len(params), 2):       
             k = params[i]
             alpha = params[i+1]
             y += k * np.exp(alpha * soc)
         return y
 
-    # Arranjos de parâmetros iniciais vazios (sem K0)
     p0 = []          
     limites_inf = [] 
     limites_sup = [] 
 
-    # Os mesmos chutes padrão para começar a procura
     chutes_k = [-0.2, 0.4, 0.1, -0.05, 0.02]
     chutes_alpha = [-15.0, -1.5, 2.0, -30.0, 5.0]
 
@@ -353,7 +376,6 @@ def identificar_ocv_ordem_n_sem_k0(soc_e, tensao_e, ordem=2):
                                p0=p0, bounds=(limites_inf, limites_sup), 
                                maxfev=500000)
         
-        # Impressão adaptada para começar no índice 0
         for i in range(0, len(popt), 2):
             n_termo = (i // 2) + 1
             print(f"K{n_termo} = {popt[i]:.5f} | alpha{n_termo} = {popt[i+1]:.5f}")

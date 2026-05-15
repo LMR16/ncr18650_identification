@@ -92,12 +92,12 @@ def plot_RC_curves(curvas):
     return None
 
 
-def plotar_R0_vs_soc(path, R0_ab, R0_cd):
+def plotar_R0_vs_soc(path, R0_ab, R0_cd, Qn):
     """
     Plota o R0 (média de ab e cd) em relação ao SOC, replicando a Figura 7b do artigo.
     """
 
-    Qn = 3.08
+    # Qn = 3.08
     # 1. Carregar os dados originais para obter o tempo e os índices
     time, voltage, current = opening_data(path) ## MPDCH
     pulsos = encontrar_pontos_pulso(current)

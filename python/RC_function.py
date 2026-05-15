@@ -19,13 +19,12 @@ def func_1(t, x1, tau1, x2, tau2):
     return x1 * np.exp(-t / tau1) + x2 * np.exp(-t / tau2)
 
 
-def get_points_ca(voltage, current):
+def get_points_ca(voltage, current, pulsos):
     """
     Extrai as curvas de relaxamento, do ponto "c" 
     até o próximo ponto "a" garantindo que o último pulso
     não apanha o "lixo" do final do dataset.
     """
-    pulsos = encontrar_pontos_pulso(current)
     ## Pega os pontos a,b,c,d e e
 
     todas_as_curvas = []
@@ -48,11 +47,10 @@ def get_points_ca(voltage, current):
 
     return todas_as_curvas
 
-def get_points_bc(voltage, current):
+def get_points_bc(voltage, current, pulsos):
     """
     Extrai as curvas durante o pulso (b -> c).
     """
-    pulsos = encontrar_pontos_pulso(current)
     #print(f"Total de pulsos encontrados: {len(pulsos)}")
 
     todas_as_curvas = []
@@ -67,11 +65,10 @@ def get_points_bc(voltage, current):
 
     return todas_as_curvas
 
-def plot_points_bc(time, voltage, current):
+def plot_points_bc(time, voltage, current, pulsos):
     """
     Extrai as curvas durante o pulso (b -> c) e plota o ensaio.
     """
-    pulsos = encontrar_pontos_pulso(current)
     #print(f"Total de pulsos encontrados: {len(pulsos)}")
 
     samples = len(time)
@@ -127,9 +124,7 @@ def plot_points_bc(time, voltage, current):
 
     return None
 
-def calc_rc_params_nopulse(path):
-    time, voltage, current = opening_data(path)    
-    pulsos = encontrar_pontos_pulso(current)
+def calc_rc_params_nopulse(time, voltage, current, pulsos):
     params = {'R1': [], 'C1': [], 'R2': [], 'C2': []}
 
     for i, pls in enumerate(pulsos): 
@@ -143,7 +138,6 @@ def calc_rc_params_nopulse(path):
         v_curve = np.array(voltage[d:a_proximo], dtype=float)
         y_alvo = v_curve[-1] - v_curve
 
-        # 2. LIMITES LIBERTADOS: Deixamos o tempo (tau) ir até aos 500/5000 segundos!
         p0 = [abs(y_alvo[0])*0.5, 100.0, abs(y_alvo[0])*0.5, 500.0]
         bounds = ([0.0, 1.0, 0.0, 1.0], [1.0, 500.0, 1.0, 5000.0])
 
@@ -171,9 +165,7 @@ def calc_rc_params_nopulse(path):
 
     return params
 
-def calc_rc_params_lut(path):
-    time, voltage, current = opening_data(path)    
-    pulsos = encontrar_pontos_pulso(current)
+def calc_rc_params_lut(time, voltage, current, pulsos):
     params = {'soc': [], 'R0': [], 'R1': [], 'C1': [], 'R2': [], 'C2': []}
 
     samples = len(time)

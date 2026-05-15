@@ -20,9 +20,7 @@ def func_ocv_exp(soc, k1, alpha1, k2, alpha2):
     """
     return k1 * np.exp(alpha1 * soc) + k2 * np.exp(alpha2 * soc)
 
-def ocv_curve(path):
-    time, voltage, current = opening_data(path)
-    pulsos = encontrar_pontos_pulso(current)
+def ocv_curve(time, voltage, current, pulsos):
 
     # 1. Criar o vetor de SOC (de 1.0 a 0.0)
     samples = len(time)
@@ -51,9 +49,9 @@ def ocv_curve(path):
     # Retorna como arrays do numpy para facilitar a matemática depois
     return np.array(soc_pontos_e), np.array(tensao_pontos_e)
 
-def identificar_parametros_ocv(path):
+def identificar_parametros_ocv(time, voltage, current, pulsos):
     # Extrair os dados 
-    soc_e, tensao_e = ocv_curve(path)
+    soc_e, tensao_e = ocv_curve(time, voltage, current, pulsos)
     
     # Configurar o Curve Fit
     chute_inicial = [3.0, 0.5, 2.0, -0.5, -5.0]
@@ -316,14 +314,6 @@ def identificar_ocv_polinomial(soc_a, tensao_a, soc_b=None, tensao_b=None, ordem
 
     return coeficientes, modelo_ocv_poli, soc_linha_suave, linha_simulada
 
-
-import numpy as np
-from scipy.optimize import curve_fit
-import matplotlib.pyplot as plt
-
-import numpy as np
-from scipy.optimize import curve_fit
-import matplotlib.pyplot as plt
 
 def identificar_ocv_ordem_n_sem_k0(soc_e, tensao_e, ordem=2):
     """

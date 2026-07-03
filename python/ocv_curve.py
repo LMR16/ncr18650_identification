@@ -6,25 +6,20 @@ from scipy.integrate import cumulative_trapezoid
 from scipy.interpolate import interp1d
 
 
-'''
-def func_ocv_exp(soc, k0, k1, alpha1, k2, alpha2):
-    """
-    OCV(SOC) = K0 + K1*exp(alpha1 * SOC) + K2*exp(alpha2 * SOC)
-    """
-    return k0 + k1 * np.exp(alpha1 * soc) + k2 * np.exp(alpha2 * soc)
-'''
-
 def func_ocv_exp(soc, k1, alpha1, k2, alpha2):
     """
     OCV(SOC) = K1*exp(alpha1 * SOC) + K2*exp(alpha2 * SOC)
     """
     return k1 * np.exp(alpha1 * soc) + k2 * np.exp(alpha2 * soc)
 
-def ocv_curve(time, voltage, current, pulsos):
+def ocv_curve(time, voltage, current, pulsos, Qn_Ah):
 
-    # 1. Criar o vetor de SOC (de 1.0 a 0.0)
-    samples = len(time)
-    soc_global = np.linspace(1, 0, samples)
+    """
+    Código que mapeia o SOC com as respectivas tensoes, corrente e tempo
+    """
+    carga_removida_As = cumulative_trapezoid(np.abs(current), time, initial=0)
+    Qn_As = Qn_Ah * 3600.0
+    soc_global = 1.0 - (carga_removida_As / Qn_As)
 
     soc_pontos_e = []
     tensao_pontos_e = []
@@ -84,8 +79,6 @@ def identificar_parametros_ocv(time, voltage, current, pulsos):
     except RuntimeError as e:
         print(f"O algoritmo falhou a convergir: {e}")
         return None
-    
-
 
 # =========================================================================
 
@@ -322,11 +315,8 @@ def identificar_ocv_ordem_n_sem_k0(soc_e, tensao_e, ordem=2):
     Inclui máscara robusta do NumPy para limpar múltiplos pontos espúrios.
     """
     
-    # =========================================================================
-    # FILTRO DE SANIDADE FÍSICA (ROBUSTO)
-    # =========================================================================
-    # A máscara varre o vetor inteiro e mantém APENAS os pontos reais de repouso.
-    limite_seguranca = 3.10  # Tensão mínima realista de repouso (OCV)
+    # A máscara varre o vetor inteiro e mantém apenas os pontos reais de repouso.
+    limite_seguranca = 2.8  # Tensão mínima realista de repouso (OCV)
     
     mascara_validos = tensao_e >= limite_seguranca
     pontos_removidos = len(tensao_e) - np.sum(mascara_validos)

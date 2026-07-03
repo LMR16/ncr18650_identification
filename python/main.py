@@ -1,3 +1,4 @@
+from pandas import DataFrame
 from R0_function import calc_R0, R0_ident
 from RC_function import calc_rc_params_nopulse, calc_rc_params_lut
 from data import  opening_data, encontrar_pontos_pulso
@@ -69,7 +70,7 @@ test_data.load_data()
 
 # ----------------------- EXTRACT DATA AND CALCULATE R0 ---------------------------------------
 
-R0_mean, R0_median, R0_values_ab, R0_values_cd, R0_values = calc_R0(
+R0_mean, R0_median, R0_values = calc_R0(
     test_data.voltage_mpdch, 
     test_data.current_mpdch, 
     test_data.pulsos_mpdch
@@ -89,39 +90,39 @@ np.trapezoid integrates the current and gives the Capacity in Ah, we divide by 3
 
 '''
 
-# Calculo do Qn real usando método dos trapézios para MPDCH
+# Calculo do Qn usando método dos trapézios para MPDCH
 carga_total_As = np.trapezoid(np.abs(test_data.current_mpdch), test_data.time_mpdch)
-Qn_real_MPDCH = carga_total_As / 3600
+Qn_MPDCH = carga_total_As / 3600
 
 ## Calculo do Qn real usando método dos trapézios para CDCH
 #carga_total_As_2 = np.trapezoid(np.abs(test_data.current_cdch), test_data.time_cdch)
 carga_total_As_2 = np.trapezoid(np.abs(test_data.current_cdch))
 
-Qn_real_CDCH = carga_total_As_2 / 3600
+Qn_CDCH = carga_total_As_2 / 3600
 
 ## Calculo do Qn real usando método dos trapézios para CCCV
 #carga_total_As_3 = np.trapezoid(np.abs(test_data.current_cccv), test_data.time_cccv)
 carga_total_As_3 = np.trapezoid(np.abs(test_data.current_cccv))
 
-Qn_real_CCCV = carga_total_As_3 / 3600
+Qn_CCCV = carga_total_As_3 / 3600
 
-Q_real_mean = (Qn_real_CDCH + Qn_real_CCCV) / 2
+Qn_real_mean = (Qn_CDCH + Qn_CCCV) / 2
 
-print(f"Qn_real_MPDCH: {Qn_real_MPDCH:.3f} Ah")
-print(f"Qn_real_CDCH: {Qn_real_CDCH:.3f} Ah")
-print(f"Qn_real_CCCV: {Qn_real_CCCV:.3f} Ah")
-print(f"Qn_real_mean: {Q_real_mean:.3f} Ah")
+print(f"Qn_MPDCH: {Qn_MPDCH:.3f} Ah")
+print(f"Qn_CDCH: {Qn_CDCH:.3f} Ah")
+print(f"Qn_CCCV: {Qn_CCCV:.3f} Ah")
+print(f"Qn_real_mean: {Qn_real_mean:.3f} Ah")
 
 
 ## ========================= CALC SOC ================================================= ##
 
 # A) SOC da Descarga: A bateria começou cheia (1.0) e foi esvaziando
 q_desc_acumulado = cumulative_trapezoid(np.abs(test_data.current_cdch), test_data.time_cdch, initial=0)
-soc_descarga = 1.0 - (q_desc_acumulado / (Q_real_mean * 3600.0))
+soc_descarga = 1.0 - (q_desc_acumulado / (Qn_real_mean * 3600.0))
 
 # B) SOC da Carga: A bateria começou vazia (0.0) e foi enchendo
 q_carg_acumulado = cumulative_trapezoid(np.abs(test_data.current_cccv), test_data.time_cccv, initial=0)
-soc_carga = q_carg_acumulado / (Q_real_mean * 3600.0)
+soc_carga = q_carg_acumulado / (Qn_real_mean * 3600.0)
 
 ## ========================= CALC OCV AND RC PARAMS ================================================= ##
 
@@ -130,8 +131,18 @@ soc_carga = q_carg_acumulado / (Q_real_mean * 3600.0)
 '''
 
 params = calc_rc_params_nopulse(test_data.time_mpdch, test_data.voltage_mpdch, test_data.current_mpdch, test_data.pulsos_mpdch)      # Calculates the values of 2RC params using MPDCH data
-soc_e, tensao_e = ocv_curve(test_data.time_mpdch, test_data.voltage_mpdch, test_data.current_mpdch, test_data.pulsos_mpdch)          # Get the 'e' points for Soc and voltage
 
+soc_e, tensao_e = ocv_curve(
+    time=test_data.time_mpdch, 
+    voltage=test_data.voltage_mpdch, 
+    current=test_data.current_mpdch, 
+    pulsos=test_data.pulsos_mpdch,
+    Qn_Ah = Qn_real_mean
+)
+
+df = pd.DataFrame(soc_e, columns=['SOC_Repouso'])
+
+print(df.head())
 
 # ----------------------- PLOTS -----------------------------------------------------
 
@@ -140,12 +151,12 @@ soc_e, tensao_e = ocv_curve(test_data.time_mpdch, test_data.voltage_mpdch, test_
 #plot_MPDCH(Test)
 #plot_RC_curves()
 #plot_ocv_curve(soc_e, tensao_e, soc_suave, tensao_simulada)
-#plotar_R0_vs_soc(Test, R0_values_ab, R0_values_cd, Q_real_mean)
+#plotar_R0_vs_soc(test_data, R0_values, Qn_real_mean)
 
 # ----------------------- PRINT VALUES ----------------------------------------------
 
 
-print('\nR0_mean =', R0_mean)       #Print value of R0
+# print('\nR0_mean =', R0_mean)       #Print value of R0
 
 # df = pd.DataFrame(params) # Get the calculated params_RC and transforms into a dataframe for better visualization
 # print(df.mean())          # Displays the result
@@ -157,6 +168,15 @@ print('\nR0_mean =', R0_mean)       #Print value of R0
 popt_ocv_MPDCH, modelo_ocv_MPDCH, dados_plot_MPDCH = identificar_ocv_ordem_n_sem_k0(soc_e, tensao_e, ordem=2)
 
 
+df_params = pd.DataFrame(params)
+
+# 2. Usa a MEDIANA em vez da Média para filtrar os pontos defeituosos
+parametros_limpos = df_params.median().to_dict()
+
+print("\n--- Parâmetros RC (Mediana) ---")
+for k, v in parametros_limpos.items():
+    print(f"{k} = {v:.4f}")
+
 v_sim, soc_sim, erro_sim = simular_bateria_continua(
     time=test_data.time_mpdch, 
     voltage=test_data.voltage_mpdch, 
@@ -165,7 +185,31 @@ v_sim, soc_sim, erro_sim = simular_bateria_continua(
     R0=R0_median, 
     func_ocv=modelo_ocv_MPDCH,
     popt_ocv=popt_ocv_MPDCH,
-    Qn=Qn_real_CDCH
+    Qn=Qn_real_mean
+)
+
+v_sim, soc_sim, erro_sim = simular_bateria_continua(
+    time=test_data.time_cdch, 
+    voltage=test_data.voltage_cdch, 
+    current=np.abs(test_data.current_cdch),
+    params=parametros_limpos, # RC params
+    R0=R0_median, 
+    func_ocv=modelo_ocv_MPDCH,
+    popt_ocv=popt_ocv_MPDCH,
+    Qn=Qn_real_mean,
+    soc_inicial=1.0
+)
+
+v_sim, soc_sim, erro_sim = simular_bateria_continua(
+    time=test_data.time_cccv, 
+    voltage=test_data.voltage_cccv, 
+    current=-np.abs(test_data.current_cccv),
+    params=parametros_limpos, # RC params
+    R0=R0_median, 
+    func_ocv=modelo_ocv_MPDCH,
+    popt_ocv=popt_ocv_MPDCH,
+    Qn=Qn_real_mean,
+    soc_inicial=0
 )
 
 
@@ -184,7 +228,7 @@ v_sim, soc_sim, erro_sim = simular_bateria_continua(
 #     lut_params=params_lut,
 #     func_ocv=modelo_ocv_MPDCH,
 #     popt_ocv=popt_ocv_MPDCH,
-#     Qn=Q_real_mean
+#     Qn=Qn_real_mean
 # )
 
 

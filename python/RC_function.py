@@ -14,7 +14,6 @@ This function will receive the MPDCH path as parameter and return a dict with al
 
 """
 
-# 1. GARANTIA DA FUNÇÃO: Coloque a func_1 aqui para blindar a matemática
 def func_1(t, x1, tau1, x2, tau2):
     return x1 * np.exp(-t / tau1) + x2 * np.exp(-t / tau2)
 
@@ -129,7 +128,8 @@ def calc_rc_params_nopulse(time, voltage, current, pulsos):
 
     for i, pls in enumerate(pulsos): 
         a, b, c, d = pls['a'], pls['b'], pls['c'], pls['d']
-        a_proximo = pulsos[i+1]['a'] if i < len(pulsos) - 1 else d + 600
+        # Fatiamento com base no tempo de repouso oficial do MPDCh (900s)
+        a_proximo = pulsos[i+1]['a'] if i < len(pulsos) - 1 else d + 900
 
         t_fatiado = np.array(time[d:a_proximo], dtype=float)
         if len(t_fatiado) < 10: continue
@@ -137,15 +137,25 @@ def calc_rc_params_nopulse(time, voltage, current, pulsos):
         t_norm = t_fatiado - t_fatiado[0]
         v_curve = np.array(voltage[d:a_proximo], dtype=float)
         y_alvo = v_curve[-1] - v_curve
+        amplitude_max = np.max(np.abs(y_alvo))
 
-        p0 = [abs(y_alvo[0])*0.5, 100.0, abs(y_alvo[0])*0.5, 500.0]
-        bounds = ([0.0, 1.0, 0.0, 1.0], [1.0, 500.0, 1.0, 5000.0])
+        # Evita que o chute inicial de tensão ultrapasse o limite de 0.1V 
+        chute_v = min(amplitude_max * 0.5, 0.05)
+
+        # p0: x1, tau1(rápido), x2, tau2(lento)
+        p0 = [chute_v, 10.0, chute_v, 150.0]
+
+        # bounds: restrição rígida de 0.1V para x1 e x2 
+        bounds = (
+            [0.0, 1.0, 0.0, 1.0],         # Mínimos: x1, tau1, x2, tau2
+            [0.1, 150.0, 0.1, 5000.0]     # Máximos: x1, tau1, x2, tau2
+        )
 
         try:
             popt, _ = curve_fit(func_1, t_norm, y_alvo, p0=p0, bounds=bounds)
             x1, tau1, x2, tau2 = popt
             
-            if tau1 > tau2:
+            if tau1 > tau2: # garante que o par 1 sempre represente a dinâmica rápida
                 tau1, tau2, x1, x2 = tau2, tau1, x2, x1
             
             I_pulso = np.max(np.abs(current[b:c])) 
